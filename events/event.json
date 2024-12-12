@@ -1,0 +1,34 @@
+{
+  "account": "<accountnumber>",
+  "detail": {
+    "changes": {
+      "assetsAdded": 0,
+      "assetsRemoved": 0,
+      "assetsUpdated": 0,
+      "metadataUpdated": "false",
+      "statusChanged": "true"
+    },
+    "domainName": "codeartifact-backup-domain",
+    "domainOwner": "<accountnumber>",
+    "eventDeduplicationId": "zh7q1uOww9K1skLhjA6A9PWD17IhEkLEM7zNtuDn2EY=",
+    "operationType": "Updated",
+    "packageFormat": "maven",
+    "packageName": "internal-library",
+    "packageNamespace": "com.amazonaws.app",
+    "packageVersion": "1.0",
+    "packageVersionRevision": "nQjAwhAz3hVCmCKLlcrxOsvCxBq844wgT+ZZjiXjFZo=",
+    "packageVersionState": "Published",
+    "repositoryAdministrator": "<accountnumber>",
+    "repositoryName": "codeartifact-backup-repository",
+    "sequenceNumber": 2
+  },
+  "detail-type": "CodeArtifact Package Version State Change",
+  "id": "f290946b-52b5-6e4c-1ef7-08347ae26732",
+  "region": "<region>",
+  "resources": [
+    "arn:aws:codeartifact:<region>:<accountnumber>:package/codeartifact-backup-domain/codeartifact-backup-repository/maven/com.amazonaws.app/internal-library"
+  ],
+  "source": "aws.codeartifact",
+  "time": "2024-07-23T11:55:55Z",
+  "version": "0"
+}

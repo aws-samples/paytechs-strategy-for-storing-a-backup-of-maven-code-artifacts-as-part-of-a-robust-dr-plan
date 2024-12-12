@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Automated artifact backup from CodeArtifact repositories to S3 bucket
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: artifact-backup-domain
+  RepositoryName:
+    Type: String
+    Default: artifact-backup-repository
+  DestinationBucketNamePrefix:
+    Type: String
+    Default: artifact-backup-bucket
+  FunctionName:
+    Type: String
+    Default: artifact-backup-function
+  RuleName:
+    Type: String
+    Default: artifact-backup-event-rule
+  LambdaRoleName:
+    Type: String
+    Default: artifact-backup-lambda-role
+     
+
+Resources:
+
+  DestinationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub "${DestinationBucketNamePrefix}-${AWS::AccountId}-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+            BlockPublicAcls: True
+            BlockPublicPolicy: True
+            IgnorePublicAcls: True
+            RestrictPublicBuckets: True
+  # This function could be improved by adding a Dead Letter Queue to catch failures. It is outside the scope of this sample
+  ArtifactBackupFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Ref FunctionName
+      Environment:
+        Variables: # You may need to encrypt these environment variables depending on if the bucket name is secret.
+          DESTINATION_BUCKET: !Ref DestinationBucket
+      CodeUri: artifact_backup_function
+      Handler: artifact_backup/app.lambda_handler
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      Role: !GetAtt ArtifactBackupFunctionRole.Arn
+      ReservedConcurrentExecutions: 1
+      Events:
+        ArtifactBackup:
+          Type: CloudWatchEvent # More info about CloudWatchEvent Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#cloudwatchevent
+          Properties:
+            RuleName: !Ref RuleName
+            Pattern:
+              source:
+                - aws.codeartifact
+              detail-type:
+                - CodeArtifact Package Version State Change
+              detail:
+                domainName:
+                  - !Ref DomainName
+                repositoryName:
+                  - !Ref RepositoryName
+                packageVersionState:
+                  - Published
+                packageFormat:
+                  - maven
+
+  ArtifactBackupFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref ArtifactBackupFunctionPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ArtifactBackupFunctionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: !Sub "${FunctionName}Policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3WritePolicy
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub ${DestinationBucket.Arn}/*
+          - Sid: CodeArtifactUploadGetAuthTokenPolicy
+            Effect: Allow
+            Action:
+              - codeartifact:GetAuthorizationToken
+            Resource: !Sub arn:${AWS::Partition}:codeartifact:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}
+          - Sid: ReadFromRepositoryPolicy
+            Effect: Allow
+            Action:
+              - codeartifact:ReadFromRepository
+            Resource: !Sub arn:${AWS::Partition}:codeartifact:${AWS::Region}:${AWS::AccountId}:repository/${DomainName}/${RepositoryName}
+          - Sid: DescribePackagePolicy
+            Effect: Allow
+            Action:
+              - codeartifact:ListPackageVersionAssets
+            Resource: !Sub arn:${AWS::Partition}:codeartifact:${AWS::Region}:${AWS::AccountId}:package/${DomainName}/${RepositoryName}/*
+          - Sid: StsTokenPolicy
+            Effect: Allow
+            Action:
+              - sts:GetServiceBearerToken
+            Resource: !Sub arn:${AWS::Partition}:sts::${AWS::AccountId}:assumed-role/${LambdaRoleName}/${FunctionName}
+      
+                
+
+Outputs:
+  ArtifactBackupFunction:
+    Description: "Artifact Backup Lambda Function ARN"
+    Value: !GetAtt ArtifactBackupFunction.Arn
+  BackupBucket:
+    Description: "S3 Destination Bucket Name"
+    Value: !Ref DestinationBucket
