@@ -69,7 +69,7 @@ The AWS Toolkit is an open source plug-in for popular IDEs that uses the SAM CLI
    
 ```bash
 $ git clone https://github.com/aws-samples/maven-package-backup
-artifactbackup$ cd maven-package-backup
+maven-package-backup$ cd maven-package-backup
 ```
 
 2. Install dependencies if you plan to use your IDE to detect problems in the code:
